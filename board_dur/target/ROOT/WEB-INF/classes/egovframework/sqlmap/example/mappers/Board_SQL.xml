@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="egovframework.example.sample.board.service.impl.BoardMapper">
+
+    <!-- 게시물에 대한 결과 매핑 -->
+<resultMap id="board" type="egovframework.example.sample.board.service.BoardVO">
+    <result property="idx" column="idx"/> <!-- idx 속성과 idx 열 매핑 -->
+    <result property="category" column="category"/> <!-- category 속성과 category 열 매핑 -->
+    <result property="title" column="title"/> <!-- title 속성과 title 열 매핑 -->
+    <result property="contents" column="contents"/> <!-- contents 속성과 contents 열 매핑 -->
+    <result property="writer" column="writer"/> <!-- writer 속성과 writer 열 매핑 -->
+    <result property="writerNm" column="writerNm"/> <!-- writerNm 속성과 writerNm 열 매핑 -->
+    <result property="indate" column="indate"/> <!-- indate 속성과 indate 열 매핑 -->
+</resultMap>
+
+<!-- 게시물 추가 -->
+<insert id="insertBoard">
+    INSERT INTO TBL_BOARD
+        (IDX, TITLE, CATEGORY, CONTENTS, COUNT, WRITER, INDATE)
+    VALUES
+        (NULL, #{title, jdbcType=VARCHAR}, #{category, jdbcType=VARCHAR}, #{contents, jdbcType=VARCHAR}, #{count, jdbcType=VARCHAR},
+         #{writer, jdbcType=VARCHAR}, SYSDATE())
+</insert>
+
+    <!-- 게시물 수정 -->
+    <update id="updateBoard">
+        UPDATE TBL_BOARD
+        SET TITLE = #{title, jdbcType=VARCHAR},CATEGORY = #{category, jdbcType=VARCHAR}, CONTENTS = #{contents, jdbcType=VARCHAR}
+        WHERE IDX = #{idx}
+    </update>
+
+    <!-- 게시물 삭제 -->
+    <delete id="deleteBoard">
+        DELETE FROM TBL_BOARD
+        WHERE IDX = #{idx}
+    </delete>
+    
+    <!-- 게시물 목록 조회 -->
+    <!-- <select id="selectBoardList" parameterType="boardVO" resultType="egovMap">
+        SELECT A.IDX as idx, A.TITLE as title, A.CATEGORY as category, A.CONTENTS as contents, IFNULL(A.COUNT, 0) as count, A.WRITER as writer,
+               A.INDATE as indate, B.USER_NAME as writerNm,
+               (SELECT COUNT(*) FROM TBL_REPLY X WHERE X.IDX = A.IDX) AS reply
+        FROM TBL_BOARD A
+        LEFT JOIN TBL_USER B ON A.WRITER = B.USER_ID
+        WHERE 1=1
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (A.TITLE LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        ORDER BY A.IDX DESC
+        LIMIT #{firstIndex}, #{recordCountPerPage}
+    </select> -->
+    
+
+    <!-- 게시물 목록 조회 -->
+    <select id="selectBoardList" parameterType="boardVO" resultType="egovMap">
+        SELECT A.IDX as idx, A.TITLE as title, A.CATEGORY as category, A.CONTENTS as contents, IFNULL(A.COUNT, 0) as count, A.WRITER as writer,
+               A.INDATE as indate, B.USER_NAME as writerNm,
+               (SELECT COUNT(*) FROM TBL_REPLY X WHERE X.IDX = A.IDX) AS reply
+        FROM TBL_BOARD A
+        LEFT JOIN TBL_USER B ON A.WRITER = B.USER_ID
+        WHERE 1=1
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (A.TITLE LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+        ORDER BY A.IDX DESC
+        LIMIT #{firstIndex}, #{recordCountPerPage}
+    </select>
+
+    <!-- 게시물 목록의 총 개수 조회 -->
+    <select id="selectBoardListTotCnt" parameterType="boardVO" resultType="int">
+        SELECT COUNT(*) totcnt
+        FROM TBL_BOARD A
+        WHERE 1=1
+        <if test="searchKeyword != null and searchKeyword != ''">
+            AND (A.TITLE LIKE CONCAT('%', #{searchKeyword}, '%') OR A.CONTENTS LIKE CONCAT('%', #{searchKeyword}, '%'))
+        </if>
+    </select>
+
+    <!-- 로그인 검사 -->
+    <select id="selectLoginCheck" parameterType="boardVO" resultType="String">
+        SELECT USER_NAME
+        FROM TBL_USER
+        WHERE 1=1
+        AND USER_ID = #{userId}
+        AND PASSWORD = #{password}
+    </select>
+
+    <!-- 댓글 추가 -->
+    <insert id="insertReply" parameterType="boardVO">
+        INSERT INTO TBL_REPLY
+            (IDX, SEQ, REPLY, WRITER, INDATE)
+        VALUES
+            (#{idx},
+             (SELECT IFNULL(MAX(X.SEQ)+1, 1) FROM TBL_REPLY X WHERE X.IDX = #{idx}),
+             #{reply, jdbcType=VARCHAR},
+             #{writer, jdbcType=VARCHAR},
+             SYSDATE())
+    </insert>
+
+    <!-- 댓글 목록 조회 -->
+    <select id="selectReplyList" parameterType="boardVO" resultType="egovMap">
+        SELECT A.IDX as idx, A.SEQ as seq, A.REPLY as reply, A.WRITER as writer, A.INDATE as indate
+        FROM TBL_REPLY A
+        WHERE 1=1
+          AND IDX = #{idx}
+        ORDER BY A.SEQ ASC
+    </select>
+
+    <!-- 게시물 조회수 업데이트 -->
+    <update id="updateBoardCount">
+        UPDATE TBL_BOARD
+        SET COUNT = IFNULL(COUNT, 0) + 1
+        WHERE IDX = #{idx}
+    </update>
+    
+    <insert id="insertAddChoice" parameterType="map">
+  INSERT INTO TBL_VOTERESULT (IDX, ITEM1, ITEM2, ITEM3, WRITER)
+  VALUES (
+    #{idx},
+    <choose>
+      <when test="item == 'item1'">
+        1, 0, 0
+      </when>
+      <when test="item == 'item2'">
+        0, 1, 0
+      </when>
+      <when test="item == 'item3'">
+        0, 0, 1
+      </when>
+    </choose>,
+    #{userId}
+  )
+</insert>
+  
+
+    <delete id="deleteReply">
+
+			DELETE FROM TBL_REPLY
+			WHERE 1=1
+			AND SEQ=#{seq}
+
+	</delete>
+	
+	
+	<insert id="insertVoteBoard">
+    INSERT INTO TBL_VOTEBOARD
+        (IDX, VOTETITLE, ITEM1, ITEM2, ITEM3, ENDDAY)
+    VALUES(
+        (SELECT MAX(IDX) FROM TBL_BOARD), 
+        #{votetitle, jdbcType=VARCHAR}, 
+        #{item1, jdbcType=VARCHAR}, 
+        #{item2, jdbcType=VARCHAR}, 
+        #{item3, jdbcType=VARCHAR},
+        #{endday, jdbcType=VARCHAR}
+        )
+	</insert>
+	
+	<!-- 단일 게시물 조회 -->
+    <!-- <select id="selectBoard" resultMap="board">
+        SELECT A.IDX as idx,
+        	A.TITLE as title,
+        	A.CATEGORY as category,
+        	A.CONTENTS as contents,
+        	A.COUNT as count,
+        	A.WRITER as writer,
+        	A.INDATE as indate,
+        	B.USER_NAME as writerNm
+        FROM TBL_BOARD A
+        LEFT JOIN TBL_USER B ON A.WRITER = B.USER_ID
+        WHERE IDX = #{idx, jdbcType=VARCHAR}
+    </select> -->
+    
+	<!-- 단일 게시물 조회 -->
+   <select id="selectVoteBoard" resultMap="board">
+				SELECT V.VOTETITLE as votetitle,
+					   V.ENDDAY as endday,
+					   V.ITEM1 as item1,
+					   V.ITEM2 as item2,
+					   V.ITEM3 as item3
+				FROM TBL_VOTEBOARD V
+				WHERE IDX=#{idx, jdbcType=VARCHAR}
+	</select>
+	
+	  <select id="selectBoard" resultMap="board">
+
+         SELECT
+         A.IDX as idx
+         , A.CATEGORY as category
+         , A.TITLE as title
+         , A.CONTENTS as contents
+         , A.COUNT as count
+         , A.WRITER as writer
+         , A.INDATE as indate
+         , B.USER_NAME as writerNm
+         , V.VOTETITLE as votetitle
+		 , V.ENDDAY as endday
+		 , V.ITEM1 as item1
+		 , V.ITEM2 as item2
+		 , V.ITEM3 as item3
+         FROM TBL_BOARD A
+         LEFT JOIN TBL_USER B ON A.WRITER = B.USER_ID
+         LEFT JOIN TBL_VOTEBOARD V ON A.IDX = V.IDX
+         WHERE A.IDX=#{idx, jdbcType=VARCHAR}
+
+   </select>
+   
+   <select id="selectVoteresult" resultMap="board">
+
+         SELECT
+         A.IDX as idx
+         , A.CATEGORY as category
+         , A.TITLE as title
+         , A.CONTENTS as contents
+         , A.COUNT as count
+         , A.WRITER as writer
+         , A.INDATE as indate
+         , B.USER_NAME as writerNm
+         , V.VOTETITLE as votetitle
+		 , V.ENDDAY as endday
+		 , V.ITEM1 as item1
+		 , V.ITEM2 as item2
+		 , V.ITEM3 as item3
+         FROM TBL_BOARD A
+         LEFT JOIN TBL_USER B ON A.WRITER = B.USER_ID
+         LEFT JOIN TBL_VOTERESULT V ON A.IDX = V.IDX
+         WHERE A.IDX=#{idx, jdbcType=VARCHAR}
+
+   </select>
+   
+   
+
+	<!-- 투표 -->
+	
+
+	
+	
+	
+</mapper>
